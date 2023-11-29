@@ -1,0 +1,201 @@
+---
+title: "002_FlowData_Exploratory"
+author: "Mike Martinez"
+date: "2023-11-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The purpose of this script is to use the outputs generated in `001_FlowData_Reformatted.Rmd` to generate paired paired boxplots
+We need to also assess the normality of the data before we generate these boxplots so we can use the appropriate statistical test.
+
+```{r set working directory and load libraries}
+
+# Set working directory
+setwd("/Users/mikemartinez/Desktop/Walnut_Project/PBMCs/Exploratory_Analysis/")
+
+library(ggplot2)
+library(ggpubr)
+```
+
+First, we need to specify the folder that holds all the files. We will use the path to the directory that holds all the files, as well as the file name to generate a full file path. We will use the file paths to store the data into two lists, one containing all the lymphocyte data, the other, all the monocyte data.
+```{r specify all the lymphocyte and monocyte files}
+
+# Set the path to the reformatted flow files
+lymphocyte_folder <- "/users/mikemartinez/Desktop/Walnut_Project/PBMCs/Data/Reformatted_Data/Batch2_3_Lymphocytes/"
+monocyte_folder <- "/users/mikemartinez/Desktop/Walnut_Project/PBMCs/Data/Reformatted_Data/Batch2_3_Monocytes/"
+
+# List the files
+lymphocyte_files <- list.files(lymphocyte_folder, pattern = ".csv$", full.names = FALSE)
+monocyte_files <- list.files(monocyte_folder, pattern = ".csv$", full.names = FALSE)
+
+# Initialize an empty list to hold all lymphocyte and monocyte files
+lymphocyte_results <- list()
+monocyte_results <- list()
+
+# For loop to read in the file and store its contents in the lymphocyte_results list
+for (file in lymphocyte_files) {
+  
+  # Define the full file path
+  full_path <- file.path(lymphocyte_folder, file)
+
+  # Read in the current file
+  current_file <- read.csv(full_path, header = TRUE, sep = ",")
+  print(dim(current_file))
+  
+  # Store the data frame in the list
+  lymphocyte_results[[file]] <- current_file
+  
+  # Print the file name
+  cat("Reading file:", file, "\n")
+}
+
+# For loop to read in the file and store its contents in the monocyte_results list
+for (file in monocyte_files) {
+  
+  # Define the full file path
+  full_path <- file.path(monocyte_folder, file)
+
+  # Read in the current file
+  current_file <- read.csv(full_path, header = TRUE, sep = ",")
+  print(dim(current_file))
+  
+  # Store the data frame in the list
+  monocyte_results[[file]] <- current_file
+  
+  # Print the file name
+  cat("Reading file:", file, "\n")
+}
+
+```
+Let's assess the normality so we can choose an appropriate test to use. To do this, we will use the Shapiro-Wilks test.
+If the pvalue is < 0.05, you can reject the null hypothesis that the data is normal (i.e. the data is not normal)
+```{r shapiro-wilks test}
+# Iterate through the lymphocyte results and assess normality
+for (result in names(lymphocyte_results)) {
+  
+  # Make the result name a little nicer
+  title <- sub("\\.csv$", "", result)
+  title <- sub("Merged_2\\.3_", "", title)
+  
+  # Run the Shapiro test
+  shapiro_test_result <- shapiro.test(lymphocyte_results[[result]]$X.Cells)
+  print(result)
+  print(shapiro_test_result)
+}
+
+# Iterate through the monocyte results and assess normality
+for (result in names(monocyte_results)) {
+  
+  # Make the result name a little nicer
+  title <- sub("\\.csv$", "", result)
+  title <- sub("Merged_2\\.3_", "", title)
+  
+  # Run the Shapiro test
+  shapiro_test_result <- shapiro.test(monocyte_results[[result]]$X.Cells)
+  print(result)
+  print(shapiro_test_result)
+ 
+}
+```
+
+Now that we have statistically assess the normality of the data with the Shapiro test, let's also visualize it graphically in the form of a histogram.
+```{r histogram}
+
+# Iterate through the lymphocyte results and assess normality
+for (result in names(lymphocyte_results)) {
+  
+  # Make the result name a little nicer
+  title <- sub("\\.csv$", "", result)
+  title <- sub("Merged_2\\.3_", "", title)
+  
+  # Create a png plot
+  png(paste(title, "histogram.png", sep = "_"))
+  # Plot histogram of cells
+  hist(lymphocyte_results[[result]]$X.Cells, main = title, breaks = 10, xlab = "Number of Cells")
+  dev.off()
+}
+
+# Iterate through the monocyte results and assess normality
+for (result in names(monocyte_results)) {
+  
+  # Make the result name a little nicer
+  title <- sub("\\.csv$", "", result)
+  title <- sub("Merged_2\\.3_", "", title)
+  
+  # Create a png plot
+  png(paste(title, "histogram.png", sep = "_"))
+  # Plot histogram of cells
+  hist(monocyte_results[[result]]$X.Cells, main = title, breaks = 10, xlab = "Number of Cells")
+  dev.off()
+}
+```
+
+Since the majority of the data are not normal, we will use the Paired Wilcox test, which is non-parametric. The following loop will iterate through the files and generate the paired boxplots.
+```{r plot}
+
+# Plot for lymphocytes
+for (result in names(lymphocyte_results)) {
+  
+  # Make the result name a little nicer
+  title <- sub("\\.csv$", "", result)
+  title <- sub("Merged_2\\.3_", "", title)
+  
+  # Plot
+  pairedPlot <- ggpaired(lymphocyte_results[[result]], x = "Visit", y = "X.Cells", id = "Sample_Number",
+                  fill = "Visit", line.color = "black", line.size = 0.3) +
+  labs(y = "Number of Cells",
+       x = "Visit") +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "Set3") +
+    ggtitle(title) +
+    theme(axis.text.x = element_text(size = 14),
+          axis.title.x = element_text(size = 16),
+          axis.text.y = element_text(size = 14),
+          axis.title.y = element_text(size = 16),
+          title = element_text(face = "bold", size = 20)) +
+  stat_compare_means(method = "wilcox", paired = TRUE, vjust = 1.2)
+ggsave(pairedPlot, file = paste(title, "Paired_Plot.png", sep = "_"))
+}
+
+# Plot for monocytes
+for (result in names(monocyte_results)) {
+  
+  # Make the result name a little nicer
+  title <- sub("\\.csv$", "", result)
+  title <- sub("Merged_2\\.3_", "", title)
+  
+  # Plot
+  pairedPlot <- ggpaired(monocyte_results[[result]], x = "Visit", y = "X.Cells", id = "Sample_Number",
+                  fill = "Visit", line.color = "black", line.size = 0.3) +
+  labs(y = "Number of Cells",
+       x = "Visit") +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "Set3") +
+    ggtitle(title) +
+    theme(axis.text.x = element_text(size = 14),
+          axis.title.x = element_text(size = 16),
+          axis.text.y = element_text(size = 14),
+          axis.title.y = element_text(size = 16),
+          title = element_text(face = "bold", size = 20)) +
+  stat_compare_means(method = "wilcox", paired = TRUE, vjust = 1.2)
+ggsave(pairedPlot, file = paste(title, "Paired_Plot.png", sep = "_"))
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
