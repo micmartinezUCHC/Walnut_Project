@@ -1,0 +1,136 @@
+---
+title: "004_All_Flow_Batches_Exploratory.Rmd"
+author: "Mike Martinez"
+date: "2023-11-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This code is very similar to `001_FlowData_Reformatted.Rmd` which contained the flow data for batches 2 and 3. This script will operate the same, but it will contain all 3 initial batches. 
+
+```{r set working directory and load libraries}
+setwd("/users/mikemartinez/Desktop/Walnut_Project/Ongoing_Trial/PBMCs/Data/Reformatted_Data/")
+
+library(tidyverse)
+library(dplyr)
+```
+
+First, we will read in both data files (batch 2 and batch 3).
+Add a column for batch number for each dataframe.
+Concatenate them into one dataframe
+```{r read in the data files}
+b1 <- read.csv("/users/mikemartinez/Desktop/Walnut_Project/Ongoing_Trial/PBMCs/Data/Original_Data_From_Core/Flow_Batch_1.csv", header = TRUE, sep = ",")
+b1$Batch <- "1"
+b2 <- read.csv("/Users/mikemartinez/Desktop/Walnut_Project/Ongoing_Trial/PBMCs/Data/Original_Data_From_Core/Flow_Batch_2.csv", header = TRUE, sep = ",")
+b2$Batch <- "2"
+b3 <- read.csv("/Users/mikemartinez/Desktop/Walnut_Project/Ongoing_Trial/PBMCs/Data/Original_Data_From_Core/Flow_Batch_3.csv", header = TRUE, sep = ",")
+b3$Batch <- "3"
+flow <- rbind(b1, b2)
+flow <- rbind(flow, b3)
+```
+
+Let's begin some initial processing of the dataframes.
+First, we do not need the observations for fcs or scatter. We need everything starting from the live cells.
+```{r remove observations for first 2 depth levels}
+# Depth "0" indicates the overall .fcs
+# Depth "> " indicates the scatter. NOTE: THERE IS WHITE SPACE AFTER THE ">"
+# For instances where the depth is 0 or >, we can remove these rows
+
+flow <- flow[!(flow$Depth == "0" | flow$Depth == "> "),]
+```
+
+Now, I want to make the data frame a little more easily parseable. 
+```{r}
+setwd("/Users/mikemartinez/Desktop/Walnut_Project/Ongoing_Trial/PBMCs/Data/Reformatted_Data/")
+# Separate out the name column in Well_Number, Sample_Number, Visit, and Rest
+flow1 <- flow %>%
+  separate(Name, into = c("Well_Number", "Sample_Number", "Col2"), sep = " ", extra = "merge") 
+  
+# Add a time column telling whether or not the sample is before or after walnut
+Before <- "V2"
+flow1$Visit <- ifelse(grepl(Before, flow1$Col2), "Before", "After")
+
+# We can take the live single cell data and store it in another data frame
+liveSC <- flow1[flow1$Col2 == "V2.fcs/scatter/live/Single Cells" | flow1$Col2 == "V3.fcs/scatter/live/Single Cells",]
+flow1 <- flow1[!(flow1$Col2 == "V2.fcs/scatter/live/Single Cells" | flow1$Col2 == "V3.fcs/scatter/live/Single Cells"),]
+write.csv(liveSC, file = "Merged_1.2.3_All_Live_SingleCells.csv")
+write.csv(flow1, file = "Merged_1.2.3_All_Flow_Data.csv")
+```
+
+We can isolate just the lymphocytes and their subcategories into separate data frames
+```{r isolate lymphocyte markers}
+
+setwd("/Users/mikemartinez/Desktop/Walnut_Project/Ongoing_Trial/PBMCs/Data/Reformatted_Data/Batches_1_2_3/Batch1_2_3_Lymphocytes/")
+flow1 <- read.csv("/Users/mikemartinez/Desktop/Walnut_Project/Ongoing_Trial/PBMCs/Data/Reformatted_Data/Merged_1.2.3_All_Flow_Data.csv")
+# All lymphocyte data
+All_Lymphocytes <- flow1[grepl("Lymphocytes", flow1$Col2),]
+write.csv(All_Lymphocytes, file = "Merged_1_2.3_All_Lymphocytes.csv")
+
+Overall_Lymphocytes <- All_Lymphocytes[All_Lymphocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Lymphocytes" | All_Lymphocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Lymphocytes",]
+write.csv(Overall_Lymphocytes, file = "Merged_1_2.3_Overall_Lymphocytes.csv")
+
+CD3_Lymphocytes <- All_Lymphocytes[All_Lymphocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Lymphocytes/CD3" | All_Lymphocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Lymphocytes/CD3",]
+write.csv(CD3_Lymphocytes, file = "Merged_1_2.3_CD3_Lymphocytes.csv")
+
+CD4_pos_Lymphocytes <- All_Lymphocytes[All_Lymphocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Lymphocytes/CD3/Q1: CD8-PerCP-Cy5.5-A- , CD4-PE (R-phycoerythrin)-A+" | All_Lymphocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Lymphocytes/CD3/Q1: CD8-PerCP-Cy5.5-A- , CD4-PE (R-phycoerythrin)-A+",]
+write.csv(CD4_pos_Lymphocytes, file = "Merged_1_2.3_CD4_pos_CD8_neg_Lymphocytes.csv")
+
+Double_pos_Lymphocytes <- All_Lymphocytes[All_Lymphocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Lymphocytes/CD3/Q2: CD8-PerCP-Cy5.5-A+ , CD4-PE (R-phycoerythrin)-A+" | All_Lymphocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Lymphocytes/CD3/Q2: CD8-PerCP-Cy5.5-A+ , CD4-PE (R-phycoerythrin)-A+",]
+write.csv(Double_pos_Lymphocytes, file = "Merged_1_2.3_CD4_CD8_Double_pos_Lymphocytes.csv")
+
+CD8_pos_Lymphocytes <- All_Lymphocytes[All_Lymphocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Lymphocytes/CD3/Q3: CD8-PerCP-Cy5.5-A+ , CD4-PE (R-phycoerythrin)-A-" | All_Lymphocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Lymphocytes/CD3/Q3: CD8-PerCP-Cy5.5-A+ , CD4-PE (R-phycoerythrin)-A-",]
+write.csv(CD8_pos_Lymphocytes, file = "Merged_1_2.3_CD8_pos_CD4_neg_Lymphocytes.csv")
+
+Double_neg_Lymphocytes <- All_Lymphocytes[All_Lymphocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Lymphocytes/CD3/Q4: CD8-PerCP-Cy5.5-A- , CD4-PE (R-phycoerythrin)-A-" | All_Lymphocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Lymphocytes/CD3/Q4: CD8-PerCP-Cy5.5-A- , CD4-PE (R-phycoerythrin)-A-",]
+write.csv(Double_neg_Lymphocytes, file = "Merged_1_2.3_CD4_CD8_Double_neg_Lymphocytes.csv")
+
+CD19_Lymphocytes <- All_Lymphocytes[All_Lymphocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Lymphocytes/CD19" | All_Lymphocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Lymphocytes/CD19",]
+write.csv(CD19_Lymphocytes, "Merged_1_2.3_CD19_Lymphocytes.csv")
+
+NK_Lymphocytes <- All_Lymphocytes[All_Lymphocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Lymphocytes/NK" | All_Lymphocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Lymphocytes/NK",]
+write.csv(NK_Lymphocytes, "Merged_1_2.3_NK_Lymphocytes.csv")
+
+NKT_Lymphocytes <- All_Lymphocytes[All_Lymphocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Lymphocytes/NKT" | All_Lymphocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Lymphocytes/NKT",]
+write.csv(NKT_Lymphocytes, "Merged_1_2.3_NKT_Lymphocytes.csv")
+
+CD16_CD3_doubleNeg <- All_Lymphocytes[All_Lymphocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Lymphocytes/Q4: CD16-PE-Cy7-A- , CD3-APC-H7-A-" | All_Lymphocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Lymphocytes/Q4: CD16-PE-Cy7-A- , CD3-APC-H7-A-",]
+write.csv(CD16_CD3_doubleNeg, "Merged_1_2.3_CD16_CD3_Double_neg_Lymphocytes.csv")
+
+T_Lymphocytes <- All_Lymphocytes[All_Lymphocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Lymphocytes/T" | All_Lymphocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Lymphocytes/T",]
+write.csv(T_Lymphocytes, "Merged_1_2.3_T_Lymphocytes.csv")
+
+```
+
+Now we can do the same thing for the monocytes
+```{r isolate monocyte markers}
+
+setwd("/Users/mikemartinez/Desktop/Walnut_Project/Ongoing_Trial/PBMCs/Data/Reformatted_Data/Batches_1_2_3/Batch1_2_3_Monocytes/")
+
+# All monocytes data
+All_Monocytes <- flow1[grepl("Monocytes", flow1$Col2),]
+write.csv(All_Monocytes, file = "Merged_1_2.3_All_Monocytes.csv")
+
+Overall_Mono <- All_Monocytes[All_Monocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Monocytes" | All_Monocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Monocytes",]
+write.csv(Overall_Mono, file = "Merged_1_2.3_Overall_Monocytes.csv")
+
+CD64_Mono <- All_Monocytes[All_Monocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Monocytes/CD64+" | All_Monocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Monocytes/CD64+",]
+write.csv(CD64_Mono, file = "Merged_1_2.3_CD64_Monocytes.csv")
+
+Classical_Mono <- All_Monocytes[All_Monocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Monocytes/CD64+/classical mono" | All_Monocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Monocytes/CD64+/classical mono",]
+write.csv(Classical_Mono, file = "Merged_1_2.3_Classical_Monocytes.csv")
+
+int_Mono <- All_Monocytes[All_Monocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Monocytes/CD64+/int mono" | All_Monocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Monocytes/CD64+/int mono",]
+write.csv(int_Mono, file = "Merged_1_2.3_Int_Monocytes.csv")
+
+NC_Mono <- All_Monocytes[All_Monocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Monocytes/CD64+/nonclassical mono" | All_Monocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Monocytes/CD64+/nonclassical mono",]
+write.csv(NC_Mono, file = "Merged_1_2.3_Nonclassical_Monocytes.csv")
+
+CD14_CD16_doubleNeg <- All_Monocytes[All_Monocytes$Col2 == "V2.fcs/scatter/live/Single Cells/Monocytes/CD64+/Q4: CD14-FITC-A- , CD16-PE-Cy7-A-" | All_Monocytes$Col2 == "V3.fcs/scatter/live/Single Cells/Monocytes/CD64+/Q4: CD14-FITC-A- , CD16-PE-Cy7-A-",]
+write.csv(CD14_CD16_doubleNeg, file = "Merged_1_2.3_CD14_CD16_Double_Neg_Monocytes.csv")
+```
+
+
+Note: You need to manually go in and edit the names for batch 1 sample 1010. I don't know why, but it doesnt behave properly and it screws up things downstream otherwise in terms of the P-value generated because there is not a paired sample for 1010 (missing before). Add this information to your lab notebook when you get a chance

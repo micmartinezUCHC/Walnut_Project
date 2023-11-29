@@ -1,4 +1,17 @@
 ---
+title: "005_AllBatches_Exploratory"
+author: "Mike Martinez"
+date: "2023-11-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The purpose of this code is to redo the exploratory analysis but including all the samples from batch 1 as well. This code will be strucutred very similarly to `002_FlowData_Exploratory.Rmd`
+
+---
 title: "002_FlowData_Exploratory"
 author: "Mike Martinez"
 date: "2023-11-28"
@@ -15,7 +28,7 @@ We need to also assess the normality of the data before we generate these boxplo
 ```{r set working directory and load libraries}
 
 # Set working directory
-setwd("/Users/mikemartinez/Desktop/Walnut_Project/PBMCs/Exploratory_Analysis/")
+setwd("/Users/mikemartinez/Desktop/Walnut_Project/Ongoing_Trial/PBMCs/Exploratory_Analysis/Batches_1_2_3/")
 
 library(ggplot2)
 library(ggpubr)
@@ -25,8 +38,8 @@ First, we need to specify the folder that holds all the files. We will use the p
 ```{r specify all the lymphocyte and monocyte files}
 
 # Set the path to the reformatted flow files
-lymphocyte_folder <- "/users/mikemartinez/Desktop/Walnut_Project/PBMCs/Data/Reformatted_Data/Batch2_3_Lymphocytes/"
-monocyte_folder <- "/users/mikemartinez/Desktop/Walnut_Project/PBMCs/Data/Reformatted_Data/Batch2_3_Monocytes/"
+lymphocyte_folder <- "/users/mikemartinez/Desktop/Walnut_Project/Ongoing_Trial/PBMCs/Data/Reformatted_Data/Batches_1_2_3/Batch1_2_3_Lymphocytes/"
+monocyte_folder <- "/users/mikemartinez/Desktop/Walnut_Project/Ongoing_Trial/PBMCs/Data/Reformatted_Data/Batches_1_2_3/Batch1_2_3_Monocytes/"
 
 # List the files
 lymphocyte_files <- list.files(lymphocyte_folder, pattern = ".csv$", full.names = FALSE)
@@ -82,7 +95,7 @@ for (result in names(lymphocyte_results)) {
   title <- sub("Merged_2\\.3_", "", title)
   
   # Run the Shapiro test
-  shapiro_test_result <- shapiro.test(lymphocyte_results[[result]]$X.Cells)
+  shapiro_test_result <- shapiro.test(lymphocyte_results[[result]]$Statistic)
   print(result)
   print(shapiro_test_result)
 }
@@ -95,7 +108,7 @@ for (result in names(monocyte_results)) {
   title <- sub("Merged_2\\.3_", "", title)
   
   # Run the Shapiro test
-  shapiro_test_result <- shapiro.test(monocyte_results[[result]]$X.Cells)
+  shapiro_test_result <- shapiro.test(monocyte_results[[result]]$Statistic)
   print(result)
   print(shapiro_test_result)
  
@@ -115,7 +128,7 @@ for (result in names(lymphocyte_results)) {
   # Create a png plot
   png(paste(title, "histogram.png", sep = "_"))
   # Plot histogram of cells
-  hist(lymphocyte_results[[result]]$X.Cells, main = title, breaks = 10, xlab = "Number of Cells")
+  hist(lymphocyte_results[[result]]$Statistic, main = title, breaks = 10, xlab = "Number of Cells")
   dev.off()
 }
 
@@ -129,7 +142,7 @@ for (result in names(monocyte_results)) {
   # Create a png plot
   png(paste(title, "histogram.png", sep = "_"))
   # Plot histogram of cells
-  hist(monocyte_results[[result]]$X.Cells, main = title, breaks = 10, xlab = "Number of Cells")
+  hist(monocyte_results[[result]]$Statistic, main = title, breaks = 10, xlab = "Number of Cells")
   dev.off()
 }
 ```
@@ -145,9 +158,9 @@ for (result in names(lymphocyte_results)) {
   title <- sub("Merged_2\\.3_", "", title)
   
   # Plot
-  pairedPlot <- ggpaired(lymphocyte_results[[result]], x = "Visit", y = "X.Cells", id = "Sample_Number",
+  pairedPlot <- ggpaired(lymphocyte_results[[result]], x = "Visit", y = "Statistic", id = "Sample_Number",
                   fill = "Visit", line.color = "black", line.size = 0.3) +
-  labs(y = "Number of Cells",
+  labs(y = "Percentage",
        x = "Visit") +
   theme(legend.position = "none") +
   scale_fill_brewer(palette = "Set3") +
@@ -157,7 +170,7 @@ for (result in names(lymphocyte_results)) {
           axis.text.y = element_text(size = 14),
           axis.title.y = element_text(size = 16),
           title = element_text(face = "bold", size = 20)) +
-  stat_compare_means(method = "wilcox", paired = TRUE, vjust = 1.2)
+  stat_compare_means(method = "wilcox.test", paired = TRUE, vjust = 1.2)
 ggsave(pairedPlot, file = paste(title, "Paired_Plot.png", sep = "_"))
 }
 
@@ -169,28 +182,9 @@ for (result in names(monocyte_results)) {
   title <- sub("Merged_2\\.3_", "", title)
   
   # Plot
-  pairedPlot <- ggpaired(monocyte_results[[result]], x = "Visit", y = "X.Cells", id = "Sample_Number",
+  pairedPlot <- ggpaired(monocyte_results[[result]], x = "Visit", y = "Statistic", id = "Sample_Number",
                   fill = "Visit", line.color = "black", line.size = 0.3) +
-  labs(y = "Number of Cells",
-       x = "Visit") +
-  theme(legend.position = "none") +
-  scale_fill_brewer(palette = "Set3") +
-    ggtitle(title) +
-    theme(axis.text.x = element_text(size = 14),
-          axis.title.x = element_text(size = 16),
-          axis.text.y = element_text(size = 14),
-          axis.title.y = element_text(size = 16),
-          title = element_text(face = "bold", size = 20)) +
-  stat_compare_means(method = "wilcox", paired = TRUE, vjust = 1.2)
-ggsave(pairedPlot, file = paste(title, "Paired_Plot.png", sep = "_"))
-}
-```
-
-
-```{r test}
-ggpaired(monocyte_results[["Merged_1_2.3_CD14_CD16_Double_Neg_Monocytes.csv"]], x = "Visit", y = "X.Cells", id = "Sample_Number",
-                  fill = "Visit", line.color = "black", line.size = 0.3) +
-  labs(y = "Number of Cells",
+  labs(y = "Percentage",
        x = "Visit") +
   theme(legend.position = "none") +
   scale_fill_brewer(palette = "Set3") +
@@ -201,11 +195,11 @@ ggpaired(monocyte_results[["Merged_1_2.3_CD14_CD16_Double_Neg_Monocytes.csv"]], 
           axis.title.y = element_text(size = 16),
           title = element_text(face = "bold", size = 20)) +
   stat_compare_means(method = "wilcox.test", paired = TRUE, vjust = 1.2)
-
-
-
-
+ggsave(pairedPlot, file = paste(title, "Paired_Plot.png", sep = "_"))
+}
 ```
+
+
 
 
 
